@@ -65,6 +65,20 @@ export const butterTheme = defineTheme({
     },
   },
 
+  // Touch + narrow (Mobile Type, Pin model): floor the base to the 16px
+  // readability/input floor and re-derive the ratio so Display 1 (step +6,
+  // the recommended anchor for ratio <= 1.25) holds its desktop size:
+  // ratio' = 1.25 * (14/16)^(1/6) ~= 1.2225. Body/label/code 14 -> 16px,
+  // display-1 stays 53px, everything between follows the pinned ladder.
+  adaptations: {
+    rules: [
+      {
+        when: {pointer: 'coarse', width: {below: 'md'}},
+        value: {typography: {scale: {base: 16, ratio: 1.2225}}},
+      },
+    ],
+  },
+
   motion: {fast: 125, medium: 300, slow: 700, ratio: 0.75},
 
   syntax: butterSyntax,
