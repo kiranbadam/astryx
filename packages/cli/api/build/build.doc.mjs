@@ -63,7 +63,7 @@ export const doc = {
     {
       type: 'build.kit',
       description:
-        'The page template to start from and the kit around it: the echoed query, hasResults/matchCount/directMatch fields, `start` (the template to scaffold, its `template <name> <path>` command, and whether it is a direct match, the closest page, or the fallback app shell), `adapt` (how to turn the template into the page), the closest page templates (≤3), drop-in block patterns (≤5), idea-specific components/hooks (≤6), `families` (every page template by family, when the start is not a direct match), and the always-on frame + foundation component-name arrays. Carries `hint` only when the kit came back thin — what to try instead, so a caller does not read a near-empty kit as "the package has nothing".',
+        'The page template to start from and the kit around it: the echoed query, hasResults/matchCount/directMatch fields, `start` (the template to scaffold, its `template <name> <path>` command, whether it is a direct match, the closest page, or the fallback app shell, and up to two next-closest `alternatives` with their one-line shape), `adapt` (how to turn the template into the page), the closest page templates (≤3), drop-in block patterns (≤5), idea-specific components/hooks (≤6), `families` (every page template by family, when the start is not a direct match), and the always-on frame + foundation component-name arrays. Carries `hint` only when the kit came back thin — what to try instead, so a caller does not read a near-empty kit as "the package has nothing".',
     },
   ],
   throws: [

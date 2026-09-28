@@ -367,4 +367,27 @@ describe('build kit — every page starts from a template', () => {
     const names = [...r.data.blocks, ...r.data.domain].map(e => e.name);
     for (const noise of ['Toast', 'Popover', 'TextInput']) expect(names).not.toContain(noise);
   });
+
+  it('names the next closest templates, with their shape, when the start is a guess', async () => {
+    const r = await build('quarterly revenue dashboard', {cwd: REPO});
+    expect(r.type).toBe('build.kit');
+    if (r.type !== 'build.kit') return;
+    const alternatives = r.data.start?.alternatives ?? [];
+    expect(alternatives.length).toBeGreaterThan(0);
+    expect(alternatives.length).toBeLessThanOrEqual(2);
+    for (const alt of alternatives) {
+      expect(alt.name).not.toBe(r.data.start?.name);
+      expect(alt.shape).toMatch(/\.$/);
+      expect(alt.shape).not.toMatch(/\.\s/);
+      expect(alt.command).toBe(`astryx template ${alt.name} <path>`);
+    }
+  });
+
+  it('names no alternatives for a direct start', async () => {
+    const r = await build('contact form', {cwd: REPO});
+    expect(r.type).toBe('build.kit');
+    if (r.type !== 'build.kit') return;
+    expect(r.data.start?.basis).toBe('direct');
+    expect(r.data.start?.alternatives).toEqual([]);
+  });
 });

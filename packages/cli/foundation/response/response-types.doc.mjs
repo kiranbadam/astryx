@@ -128,7 +128,7 @@ export const doc = {
     {
       value: 'build.kit',
       description:
-        'The template to start from and its kit: query, hasResults, matchCount (never a cap), directMatch, start {name, command, basis, ...}, adapt, pages (closest templates), blocks and domain as SearchResultEntry[], families (when the start is loose), frame, foundation, and hint {reason, commands} when thin.',
+        'The template to start from and its kit: query, hasResults, matchCount (never a cap), directMatch, start {name, command, basis, alternatives, ...}, adapt, pages (closest templates), blocks and domain as SearchResultEntry[], families (when the start is loose), frame, foundation, and hint {reason, commands} when thin.',
     },
 
     // swizzle

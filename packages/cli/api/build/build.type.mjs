@@ -45,6 +45,17 @@
  * @property {string} command The scaffold command, `astryx template <name> <path>`: `<path>` is a placeholder for the file or folder to write the template to, and the `astryx` prefix is for the caller to replace with its own invocation.
  * @property {'direct' | 'closest' | 'fallback'} basis Why this template: `direct` when it is the kit's direct match (`directMatch`) and ready; `closest` when the page ranker, which weighs every matched word by how rare it is among page templates and favors the family the idea's head names, puts it first with enough evidence to lead; `fallback` when nothing does and the page starts from the app shell.
  * @property {string} reason One sentence saying the same as `basis`, for a reader.
+ * @property {BuildAlternative[]} alternatives The next closest page templates (≤2), for when the start's shape is wrong. Empty for a direct start.
+ */
+
+/**
+ * A page template to consider instead of the start.
+ *
+ * @typedef {object} BuildAlternative
+ * @property {string} name Template id, as `astryx template <name>` takes it.
+ * @property {string} displayName Human-facing template name.
+ * @property {string} shape The first sentence of its description: the layout, in one line.
+ * @property {string} command The scaffold command, `astryx template <name> <path>`.
  */
 
 /**

@@ -27,7 +27,8 @@
 import {search} from '../../search/search.mjs';
 import {getResultCoverage} from '../../search/coverage.mjs';
 import {loadPageTemplates} from '../_adapter.mjs';
-import {pickStart, rankPages} from './rank.mjs';
+import {pickAlternatives, pickStart, rankPages} from './rank.mjs';
+import {firstSentence} from '../../../foundation/text/string-utils.mjs';
 
 /** A page at/above this score is a confident direct match. */
 const PAGE_DIRECT = 95;
@@ -155,13 +156,13 @@ function familiesOf(catalog) {
  * ready; such a template stays listed in `pages`, where a reader who asked for
  * it by name still finds it.
  *
- * @param {string} query
+ * @param {import('./rank.mjs').RankedPage[]} ranked
  * @param {SearchResultEntry[]} pages
  * @param {boolean} directMatch
  * @param {PageTemplate[]} catalog
- * @returns {BuildStart | null}
+ * @returns {Omit<BuildStart, 'alternatives'> | null}
  */
-function chooseStart(query, pages, directMatch, catalog) {
+function chooseStart(ranked, pages, directMatch, catalog) {
   if (directMatch && catalog.some(t => t.name === pages[0].name)) {
     const top = pages[0];
     return {
@@ -176,7 +177,7 @@ function chooseStart(query, pages, directMatch, catalog) {
   // A direct match that is not ready yet is still named, so the reader knows
   // why the kit starts elsewhere.
   const unready = directMatch ? pages[0].name : null;
-  const pick = pickStart(rankPages(query, catalog));
+  const pick = pickStart(ranked);
   const closest = pick && catalog.find(t => t.name === pick.name);
   if (closest) {
     return {
@@ -287,9 +288,34 @@ export async function buildKit(query, options = {}) {
   // other kit does, so the reader is never left to compose a page from scratch.
   const wantsPages = !type || type === 'template';
   const catalog = wantsPages ? await loadPageTemplates(cwd) : [];
-  const start = wantsPages
-    ? chooseStart(query, matchedPages, directMatch, catalog)
+  const ranked = wantsPages ? rankPages(query, catalog) : [];
+  const chosen = wantsPages
+    ? chooseStart(ranked, matchedPages, directMatch, catalog)
     : null;
+  // When the start is a guess, name the next closest templates with their
+  // one-line shape: the reader judges meaning better than keywords do, and
+  // an acceptable template is in these three far more often than it is the
+  // start alone.
+  /** @type {BuildStart | null} */
+  const start = chosen && {
+    ...chosen,
+    alternatives:
+      chosen.basis === 'direct'
+        ? []
+        : pickAlternatives(ranked, chosen.name).flatMap(r => {
+            const t = catalog.find(c => c.name === r.name);
+            return t
+              ? [
+                  {
+                    name: t.name,
+                    displayName: t.displayName,
+                    shape: firstSentence(t.description),
+                    command: `astryx template ${t.name} <path>`,
+                  },
+                ]
+              : [];
+          }),
+  };
   // When the start is not a direct match, the reader may know a closer layout
   // than keyword search found. Name every page template, by family, so that
   // choice is one look away instead of a 2,000-line `template --list`.

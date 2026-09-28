@@ -22,6 +22,7 @@ describe('build kit text fields mirror the JSON keys', () => {
     const keys = new Set([
       ...Object.keys(data),
       ...Object.keys(data.start ?? {}),
+      ...(data.start?.alternatives ?? []).flatMap(a => Object.keys(a)),
       ...[...data.pages, ...data.blocks, ...data.domain].flatMap(e => Object.keys(e)),
     ]);
 

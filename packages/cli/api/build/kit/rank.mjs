@@ -265,6 +265,22 @@ export function rankPages(query, pages) {
 }
 
 /**
+ * The next closest templates after the start, best first: the ones a reader
+ * should check the idea against when the start's shape is wrong. Each matched
+ * at least one term and scored at least half of what a start needs.
+ *
+ * @param {RankedPage[]} ranked
+ * @param {string} startName
+ * @param {number} [count]
+ * @returns {RankedPage[]}
+ */
+export function pickAlternatives(ranked, startName, count = 2) {
+  return ranked
+    .filter(r => r.name !== startName && r.hits > 0 && r.score >= START_SCORE / 2)
+    .slice(0, count);
+}
+
+/**
  * The template to start from, or null when the best one has too little
  * evidence to lead and the page should start from the app shell.
  *

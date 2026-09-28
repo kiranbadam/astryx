@@ -28,6 +28,7 @@ import {
   records,
 } from '../formatters/index.mjs';
 import {cliError} from '../lib/cli-error.mjs';
+import {firstSentence} from '../../../foundation/text/string-utils.mjs';
 import {defineCommand} from '../lib/define-command.mjs';
 import {build as buildApi} from '../../../api/build/build.mjs';
 import {doc as buildCommand} from './build.doc.mjs';
@@ -45,35 +46,19 @@ const COMMAND_RECORDS = {
 
 /**
  * What to do with the start, by why it was chosen. It follows the kit's own
- * one-sentence `start.reason` in the START FROM heading.
- * @type {Record<'direct' | 'closest' | 'fallback', string>}
+ * one-sentence `start.reason` in the START FROM heading. `where` names the
+ * sections to look in when the start is the wrong shape — only the ones the
+ * kit actually prints.
+ * @type {Record<'direct' | 'closest' | 'fallback', (where: string) => string>}
  */
 const START_NEXT = {
-  direct:
+  direct: () =>
     'Scaffold it (replace <path> with the file or folder to write it to), then adapt it.',
-  closest:
-    'Start from it anyway: a close template keeps the frame and spacing that composing from components loses. If its shape is wrong, scaffold one from OTHER PAGE TEMPLATES or ALL PAGE TEMPLATES instead.',
-  fallback:
-    'The shell is a page frame with navigation and empty content. Fill it with blocks. If a template under ALL PAGE TEMPLATES has a closer layout, scaffold that one instead.',
+  closest: where =>
+    `Start from it anyway: a close template keeps the frame and spacing that composing from components loses. If its shape is wrong, check ${where}.`,
+  fallback: where =>
+    `The shell is a page frame with navigation and empty content. Fill it with blocks. If a template under ${where} has a closer layout, scaffold that one instead.`,
 };
-
-/**
- * The first sentence of a description. Component descriptions run to
- * paragraphs; in a kit the reader needs what the thing is, and `--verbose` or
- * `component <Name>` has the rest. A period after "e.g" or "i.e" does not end
- * the sentence.
- * @param {string} description
- */
-function firstSentence(description) {
-  const flat = String(description ?? '').replace(/\s+/g, ' ').trim();
-  const ends = /[.!?](?=\s|$)/g;
-  for (let m = ends.exec(flat); m; m = ends.exec(flat)) {
-    if (!/\b(e\.g|i\.e)$/i.test(flat.slice(0, m.index))) {
-      return flat.slice(0, m.index + 1);
-    }
-  }
-  return flat;
-}
 
 /**
  * One family as a line: `Dashboard: dashboard (Analytics), dashboard-scorecard, ...`.
@@ -239,18 +224,24 @@ export function registerBuild(program) {
             format: {command: formatCliCommand, description: firstSentence},
           };
 
-      // A fallback start means search's pages were too weak to lead, so they
-      // are not offered as alternatives — unless one was a direct match that
-      // is not ready yet, which a reader who named it still needs to see.
+      // Search's pages are the alternatives only when one of them matched the
+      // idea directly (a direct start's siblings, or a direct match that is not
+      // ready yet, which a reader who named it needs to see). Otherwise they
+      // are loose keyword hits, and NEXT CLOSEST — the ranker's runners-up —
+      // takes their place.
       const otherPages =
-        start && (start.basis !== 'fallback' || directMatch)
-          ? pages.filter(p => p.name !== start.name)
-          : [];
+        start && directMatch ? pages.filter(p => p.name !== start.name) : [];
+      const lookIn = [
+        ...(start?.alternatives.length ? ['NEXT CLOSEST'] : []),
+        ...(families?.length ? ['ALL PAGE TEMPLATES'] : []),
+      ].join(', then ');
 
       // A short legend up top: what this output is, how to use it, and the exact
       // order of the sections below (only the ones actually present) so it reads
       // clearly and parses predictably.
-      const sectionsOrder = start ? ['START FROM', 'ADAPT IT'] : [];
+      const sectionsOrder = start ? ['START FROM'] : [];
+      if (start?.alternatives.length) sectionsOrder.push('NEXT CLOSEST');
+      if (start) sectionsOrder.push('ADAPT IT');
       if (otherPages.length) sectionsOrder.push('OTHER PAGE TEMPLATES');
       if (families?.length) sectionsOrder.push('ALL PAGE TEMPLATES');
       if (blocks.length) sectionsOrder.push('BLOCKS');
@@ -275,11 +266,26 @@ export function registerBuild(program) {
 
       if (start) {
         out.push(
-          section('START FROM', `${start.reason} ${START_NEXT[start.basis]}`),
+          section(
+            'START FROM',
+            `${start.reason} ${START_NEXT[start.basis](lookIn || 'OTHER PAGE TEMPLATES')}`,
+          ),
           record(start, {
             fields: ['name', 'displayName', 'description', 'command'],
             format: {command: formatCliCommand},
           }),
+          ...(start.alternatives.length
+            ? [
+                section(
+                  'NEXT CLOSEST',
+                  'If the start is the wrong shape, one of these may fit better. Scaffold it instead:',
+                ),
+                records(start.alternatives, {
+                  fields: ['name', 'shape', 'command'],
+                  format: {command: formatCliCommand},
+                }),
+              ]
+            : []),
           section('ADAPT IT', 'Turn the scaffolded template into your page:'),
           list(adapt),
         );
