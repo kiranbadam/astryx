@@ -20,11 +20,9 @@
  */
 
 import IntlMessageFormat from 'intl-messageformat';
-import type {Catalog, Locale, MessagesByLocale, Overrides} from './types';
-import enSource from '../../locales/en.json' with {type: 'json'};
+import type {Locale, MessagesByLocale, Overrides} from './types';
+import {enCatalog} from './enCatalog.generated';
 import {warnOnce, __resetDevWarnings} from '../utils/devWarning';
-
-const EN_CATALOG = enSource as Catalog;
 
 /**
  * Cache of parsed ICU MessageFormat objects keyed by `${locale}::${message}`.
@@ -113,7 +111,7 @@ export function getResolve(
   const lookup = getLookup(locale, messages, overrides);
 
   return (key: string, values: Record<string, unknown> | undefined) => {
-    const result = lookup[key] ?? EN_CATALOG[key]?.defaultMessage;
+    const result = lookup[key] ?? enCatalog[key];
     if (result === undefined) {
       // Fires ONLY when a key is missing from every source including the
       // shipped `en` catalog — a real bug (typo, stale catalog, deleted key).

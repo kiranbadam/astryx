@@ -49,7 +49,7 @@ import fr from '@astryxdesign/core/locales/fr.json';
         },
         {
           type: 'prose',
-          text: 'Astryx ships English today, with first-party translations for other locales on the roadmap. Until a locale is available from `@astryxdesign/core/locales/*`, apps can pass a local catalog with the same shape. See `@astryxdesign/core/locales/en.json` for the current key inventory. Missing keys fall back through the locale chain to English (for example, `pt-BR` walks to `pt`, then to shipped `en`).',
+          text: 'Astryx ships English and first-party translations for supported locales. Runtime catalogs from `@astryxdesign/core/locales/*` contain only the messages apps need. Until a locale is available, apps can pass a local catalog with the same shape. See `@astryxdesign/core/translation-locales/en.json` for the current key inventory and translator context. Missing keys fall back through the locale chain to English (for example, `pt-BR` walks to `pt`, then to shipped `en`).',
         },
         {
           type: 'prose',
@@ -290,7 +290,7 @@ export default function App() {
         },
         {
           type: 'prose',
-          text: '`Catalog` types a single locale file; `MessagesByLocale` types the map passed to `messages`. A catalog entry uses the same `{defaultMessage, description?}` shape as `@astryxdesign/core/locales/en.json`.',
+          text: '`Catalog` types a single locale file; `MessagesByLocale` types the map passed to `messages`. Runtime catalogs from `@astryxdesign/core/locales/*` contain `{defaultMessage}` entries. Rich translation sources from `@astryxdesign/core/translation-locales/*` use the compatible `{defaultMessage, description?}` shape.',
         },
       ],
     },

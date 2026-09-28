@@ -89,12 +89,11 @@ const STATIC_EXPORTS = {
   },
   './docs.mjs': './docs.mjs',
   './groups.doc.mjs': './groups.doc.mjs',
-  // i18n message catalogs. Consumers pass these to
-  // <InternationalizationProvider messages={{fr, ...}}> or use them for
-  // custom overrides / pseudoloc smoke-tests. Wildcard export exposes every
-  // JSON file under packages/core/locales/, which ships thanks to the
-  // `locales` entry in the `files` array.
-  './locales/*.json': './locales/*.json',
+  // i18n message catalogs. Public runtime subpaths keep the familiar `locales`
+  // name and point at generated metadata-free files. Rich Crowdin source stays
+  // available explicitly for translation tooling and catalog authors.
+  './locales/*.json': './runtime-locales/*.json',
+  './translation-locales/*.json': './locales/*.json',
 };
 
 /** Nested modules backed by an index.ts entry point. */
