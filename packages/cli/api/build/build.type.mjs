@@ -43,9 +43,9 @@
  * @property {string} displayName Human-facing template name.
  * @property {string} description What the page is: its layout and the ideas it serves.
  * @property {string} command The scaffold command, `astryx template <name> <path>`: `<path>` is a placeholder for the file or folder to write the template to, and the `astryx` prefix is for the caller to replace with its own invocation.
- * @property {'direct' | 'closest' | 'fallback'} basis Why this template: `direct` when it is the kit's direct match (`directMatch`) and ready; `closest` when the page ranker, which weighs every matched word by how rare it is among page templates and favors the family the idea's head names, puts it first with enough evidence to lead; `fallback` when nothing does and the page starts from the app shell.
+ * @property {'direct' | 'closest' | 'fallback'} basis Why this template. The page ranker picks every start: it weighs each matched word by how rare it is among page templates, favors the family the idea's head names and the container it names ("in a modal"), and discounts words that only modify another. `direct` when its pick is also search's direct match (`directMatch`); `closest` when it is not; `fallback` when no template has the evidence to lead and the page starts from the app shell.
  * @property {string} reason One sentence saying the same as `basis`, for a reader.
- * @property {BuildAlternative[]} alternatives The next closest page templates (≤2), for when the start's shape is wrong. Empty for a direct start.
+ * @property {BuildAlternative[]} alternatives The ranker's next closest page templates (≤2), for when the start's layout is wrong.
  */
 
 /**
@@ -54,17 +54,8 @@
  * @typedef {object} BuildAlternative
  * @property {string} name Template id, as `astryx template <name>` takes it.
  * @property {string} displayName Human-facing template name.
- * @property {string} shape The first sentence of its description: the layout, in one line.
+ * @property {string} description What the page is: its layout and the ideas it serves.
  * @property {string} command The scaffold command, `astryx template <name> <path>`.
- */
-
-/**
- * The page templates of one family, named by the text before " - " in each
- * template's own `category`.
- *
- * @typedef {object} BuildTemplateFamily
- * @property {string} family Family name (e.g. `Dashboard`); `Other` for templates without a category.
- * @property {{name: string, variant: string}[]} templates Each template's id and its variant: the text after " - " in its category, or its display name when the category has none.
  */
 
 /**
@@ -81,12 +72,10 @@
  * @property {boolean} data.hasResults False when search returned nothing. The kit still names a template in `start`.
  * @property {number} data.matchCount Total ranked search matches for the query — counted before the search `limit`, the kit's score floors, and its per-group caps, so it is never a cap read back.
  * @property {boolean} data.directMatch True when the top page template is a confident direct match.
- * @property {BuildStart | null} data.start The page template to start from: the direct match, else the ranker's closest ready page, else the app shell. Null only when the kit is narrowed to components or hooks (`type`), or when the project has no page template to offer.
- * @property {string[]} data.adapt How to adapt the scaffolded template into the page, in order: what to keep, what to replace, what to delete, and what not to do.
+ * @property {BuildStart | null} data.start The page template to start from: the ranker's pick, else the app shell. Null only when the kit is narrowed to components or hooks (`type`), or when the project has no page template to offer.
  * @property {import('../search/search.type.mjs').SearchResultEntry[]} data.pages Closest page templates by search (≤3). Each entry's `command` carries `--skeleton` when `directMatch` is false, so it previews the layout; `start.command` is the scaffold.
  * @property {import('../search/search.type.mjs').SearchResultEntry[]} data.blocks Drop-in block patterns covering parts of the idea (≤5).
  * @property {import('../search/search.type.mjs').SearchResultEntry[]} data.domain Idea-specific components/hooks (≤6), excluding frame/foundation.
- * @property {BuildTemplateFamily[]} [data.families] Every ready page template, grouped by family. Present when `start` is not a direct match, so a reader who knows a closer layout than keyword search found can pick it.
  * @property {string[]} data.frame Always-on page-shell component names. Every page template already uses them.
  * @property {string[]} data.foundation Always-on layout/typography/action component names. Every page template already uses them.
  * @property {{reason: string, commands: string[]}} [data.hint] Present only when the kit is thin. `reason` says why, `commands` are bare subcommands (e.g. `component --list`) for the caller to render with its own invocation — so a reader is never handed a command that does not resolve in their project.

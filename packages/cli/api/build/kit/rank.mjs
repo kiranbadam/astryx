@@ -21,19 +21,27 @@
  * "board" picks the kanban board for a game board. Here every matched term
  * counts, weighted by how rare it is among page templates (inverse document
  * frequency), so the page that answers more of the idea — and its rarer words —
- * wins. Two structural signals sit on top:
+ * wins. Structural signals sit on top:
  *
  * - The head noun. The words before the first "with", ":" or "," name what
  *   the page is ("audit dashboard: dense table with …"); a family word there
  *   outweighs the same word among the parts.
+ * - The container. In "draft history in a modal", the modal is the page's
+ *   frame, and a template is its frame; container words count double, and a
+ *   container match is evidence enough to start from.
+ * - Phrase heads. In "side-by-side product response", "product" describes the
+ *   response; it is not a product page. A word that only ever modifies the
+ *   next one counts half, unless the template names the same pair
+ *   ("executive summary").
  * - The family base. A template whose id is its family's name (`dashboard`,
  *   `settings`) is that family's default; it wins when no variant's own words
  *   outweigh it.
  *
- * Family words come from the templates themselves — a word in the ids of two
- * or more templates of one family, plus the family's name when a template
- * carries it — never from a list kept here, so an integration's templates join
- * the vocabulary by being named like their family.
+ * Family words come from the templates' own ids — a word in the ids of two or
+ * more templates of one family, plus the family's name when a template carries
+ * it — never from a list kept here or from synonyms, so an integration's
+ * templates join the vocabulary by being named like their family, and "a
+ * landing page" is not a hero because "landing" is a synonym of "hero".
  */
 
 import {stem, STOPWORDS, SYNONYMS} from '../../search/search.mjs';
@@ -53,6 +61,10 @@ const FIELD_WEIGHT = {
 };
 /** A synonym hit counts at this share of a direct hit. */
 const SYNONYM_SHARE = 0.5;
+/** A container word ("in a modal") counts this many times over. */
+const CONTAINER = 2;
+/** A word that only modifies another ("product" in "product response"). */
+const MODIFIER = 0.5;
 /** Added when the idea's head names the template's family. */
 const HEAD_FAMILY = 12;
 /** Added when the family is named anywhere else in the idea. */
@@ -66,6 +78,11 @@ const FAMILY_BASE = 2;
  */
 const START_SCORE = 10;
 const START_TERMS = 2;
+
+/**
+ * Words search drops that name layout: "side navigation", "side by side".
+ */
+const LAYOUT_WORDS = new Set(['side']);
 
 /** Filler that search keeps but that says nothing about a page's layout. */
 const FILLER = new Set([
@@ -110,6 +127,22 @@ const FILLER = new Set([
 const HEAD_END =
   /:|,|;|\(|\s[-\u2013\u2014]\s|\b(?:with|showing|listing|for|that|where|plus|including|containing|featuring|which|to|from|of)\b/i;
 
+/** A container phrase: "in a modal", "inside the side panel". */
+const CONTAINER_PHRASE =
+  /\b(?:in|inside|within)\s+(?:a|an|the)\s+([a-z-]+)(?:\s+([a-z-]+))?/gi;
+
+/**
+ * Where a phrase ends, for finding the word that heads it: punctuation and
+ * the words that join phrases.
+ */
+const PHRASE_END =
+  /[^a-z0-9\s-]+|\s(?:and|or|with|for|of|to|in|on|at|by|from|the|a|an|plus)\s/;
+
+/** @param {string} t */
+const isContentWord = t =>
+  t.length >= 2 &&
+  (LAYOUT_WORDS.has(t) || (!STOPWORDS.has(t) && !FILLER.has(t)));
+
 /**
  * Content terms of a text: lowercase alphanumeric words, stopwords and filler
  * removed, stemmed.
@@ -117,14 +150,75 @@ const HEAD_END =
  * @returns {string[]}
  */
 function terms(text) {
-  return (String(text).toLowerCase().match(/[a-z0-9]+/g) ?? [])
-    .filter(t => t.length >= 2 && !STOPWORDS.has(t) && !FILLER.has(t))
+  return (
+    String(text)
+      .toLowerCase()
+      .match(/[a-z0-9]+/g) ?? []
+  )
+    .filter(isContentWord)
     .map(stem);
+}
+
+/**
+ * The terms of an idea that only ever modify another word, each with the words
+ * it modifies: in each phrase the last content word is its head, and the ones
+ * before it describe the next.
+ * @param {string} query
+ * @returns {Map<string, Set<string>>}
+ */
+function modifiersOf(query) {
+  const heads = new Set();
+  /** @type {Map<string, Set<string>>} */
+  const modifiers = new Map();
+  for (const phrase of String(query).toLowerCase().split(PHRASE_END)) {
+    const words = terms(phrase);
+    words.forEach((w, i) => {
+      if (i === words.length - 1) heads.add(w);
+      else modifiers.set(w, (modifiers.get(w) ?? new Set()).add(words[i + 1]));
+    });
+  }
+  for (const h of heads) modifiers.delete(h);
+  return modifiers;
+}
+
+/**
+ * Adjacent term pairs a text names, "a b", for telling a template that names
+ * a whole compound ("executive summary") from one that names only its parts.
+ * @param {string[]} texts
+ * @returns {Set<string>}
+ */
+function pairsOf(texts) {
+  const pairs = new Set();
+  for (const text of texts) {
+    for (const phrase of String(text).toLowerCase().split(PHRASE_END)) {
+      const words = terms(phrase);
+      for (let i = 1; i < words.length; i++)
+        pairs.add(`${words[i - 1]} ${words[i]}`);
+    }
+  }
+  return pairs;
+}
+
+/**
+ * The terms of an idea that name its container: "modal" in "in a modal".
+ * @param {string} query
+ * @returns {Set<string>}
+ */
+function containersOf(query) {
+  const found = new Set();
+  for (const m of String(query).matchAll(CONTAINER_PHRASE)) {
+    for (const t of terms(`${m[1]} ${m[2] ?? ''}`)) found.add(t);
+  }
+  return found;
 }
 
 /** @param {string} text */
 const normalized = text =>
-  (String(text).toLowerCase().match(/[a-z0-9]+/g) ?? []).join(' ');
+  (
+    String(text)
+      .toLowerCase()
+      .match(/[a-z0-9]+/g) ?? []
+  ).join(' ');
 
 /** Stemmed synonym lookup built from search's vocabulary, both directions. */
 const SYNONYMS_OF = (() => {
@@ -150,7 +244,7 @@ const SYNONYMS_OF = (() => {
 
 /**
  * @typedef {import('../_adapter.mjs').PageTemplate} PageTemplate
- * @typedef {{name: string, score: number, hits: number, familyNamed: boolean}} RankedPage
+ * @typedef {{name: string, score: number, hits: number, familyNamed: boolean, containerMatched: boolean}} RankedPage
  */
 
 /**
@@ -182,17 +276,25 @@ export function rankPages(query, pages) {
     /** @type {Map<string, number>} */
     const bag = new Map();
     for (const [field, text] of Object.entries(fields)) {
-      const weight = FIELD_WEIGHT[/** @type {keyof typeof FIELD_WEIGHT} */ (field)];
-      for (const t of terms(text)) bag.set(t, Math.max(bag.get(t) ?? 0, weight));
+      const weight =
+        FIELD_WEIGHT[/** @type {keyof typeof FIELD_WEIGHT} */ (field)];
+      for (const t of terms(text))
+        bag.set(t, Math.max(bag.get(t) ?? 0, weight));
     }
-    return {page, family: family.trim(), bag};
+    return {
+      page,
+      family: family.trim(),
+      bag,
+      pairs: pairsOf(Object.values(fields)),
+    };
   });
 
   // Inverse document frequency over page templates: a word every dashboard
   // carries says less than one only the funnel carries.
   /** @type {Map<string, number>} */
   const df = new Map();
-  for (const {bag} of docs) for (const t of bag.keys()) df.set(t, (df.get(t) ?? 0) + 1);
+  for (const {bag} of docs)
+    for (const t of bag.keys()) df.set(t, (df.get(t) ?? 0) + 1);
   const n = docs.length;
   /** @param {string} t */
   const idf = t => {
@@ -218,9 +320,6 @@ export function rankPages(query, pages) {
     if (name.length >= 3 && counts.has(stem(name))) heads.push(stem(name));
     for (const head of heads) {
       if (!familyOfWord.has(head)) familyOfWord.set(head, family);
-      for (const s of SYNONYMS_OF.get(head) ?? []) {
-        if (!familyOfWord.has(s)) familyOfWord.set(s, family);
-      }
     }
   }
   /** @param {string[]} ts */
@@ -228,24 +327,40 @@ export function rankPages(query, pages) {
     new Set(ts.filter(t => familyOfWord.has(t)).map(t => familyOfWord.get(t)));
 
   const queryTerms = [...new Set(terms(query))];
-  const headFamilies = familiesIn(terms(String(query).split(HEAD_END)[0] ?? ''));
+  const headFamilies = familiesIn(
+    terms(String(query).split(HEAD_END)[0] ?? ''),
+  );
   const namedFamilies = familiesIn(queryTerms);
+  const modifiers = modifiersOf(query);
+  const containers = containersOf(query);
 
   return docs
-    .map(({page, family, bag}) => {
+    .map(({page, family, bag, pairs}) => {
       let score = 0;
       let hits = 0;
+      let containerMatched = false;
       for (const t of queryTerms) {
-        const direct = idf(t) * (bag.get(t) ?? 0);
+        // A modifier is discounted where the template names it outright; a
+        // synonym hit is already discounted by SYNONYM_SHARE.
+        const modified = modifiers.get(t);
+        const discounted =
+          modified !== undefined &&
+          ![...modified].some(n => pairs.has(`${t} ${n}`));
+        const direct = idf(t) * (bag.get(t) ?? 0) * (discounted ? MODIFIER : 1);
         let viaSynonym = 0;
         for (const s of SYNONYMS_OF.get(t) ?? []) {
           if (queryTerms.includes(s)) continue;
-          viaSynonym = Math.max(viaSynonym, SYNONYM_SHARE * idf(s) * (bag.get(s) ?? 0));
+          viaSynonym = Math.max(
+            viaSynonym,
+            SYNONYM_SHARE * idf(s) * (bag.get(s) ?? 0),
+          );
         }
-        const value = Math.max(direct, viaSynonym);
+        const value =
+          Math.max(direct, viaSynonym) * (containers.has(t) ? CONTAINER : 1);
         if (value > 0) {
           score += value;
           hits++;
+          if (containers.has(t)) containerMatched = true;
         }
       }
       const familyNamed = namedFamilies.has(family);
@@ -254,7 +369,7 @@ export function rankPages(query, pages) {
       if (familyNamed && normalized(page.name) === normalized(family)) {
         score += FAMILY_BASE;
       }
-      return {name: page.name, score, hits, familyNamed};
+      return {name: page.name, score, hits, familyNamed, containerMatched};
     })
     .sort(
       (a, b) =>
@@ -276,13 +391,16 @@ export function rankPages(query, pages) {
  */
 export function pickAlternatives(ranked, startName, count = 2) {
   return ranked
-    .filter(r => r.name !== startName && r.hits > 0 && r.score >= START_SCORE / 2)
+    .filter(
+      r => r.name !== startName && r.hits > 0 && r.score >= START_SCORE / 2,
+    )
     .slice(0, count);
 }
 
 /**
  * The template to start from, or null when the best one has too little
- * evidence to lead and the page should start from the app shell.
+ * evidence to lead and the page should start from the app shell. Evidence is
+ * two matched terms, the idea naming the template's family, or its container.
  *
  * @param {RankedPage[]} ranked
  * @returns {RankedPage | null}
@@ -290,5 +408,7 @@ export function pickAlternatives(ranked, startName, count = 2) {
 export function pickStart(ranked) {
   const top = ranked[0];
   if (!top || top.score < START_SCORE) return null;
-  return top.hits >= START_TERMS || top.familyNamed ? top : null;
+  return top.hits >= START_TERMS || top.familyNamed || top.containerMatched
+    ? top
+    : null;
 }

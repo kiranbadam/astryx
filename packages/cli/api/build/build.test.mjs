@@ -201,7 +201,7 @@ describe('build kit — a thin kit says what to try next', () => {
   it('hints for a matched-then-filtered query: hasResults true, nothing offerable', async () => {
     // The case most likely to be misread, and the reason the threshold counts
     // what SURVIVED the floors rather than what search returned.
-    const r = await build('blockchain', {cwd: REPO});
+    const r = await build('hydration', {cwd: REPO});
     expect(r.type).toBe('build.kit');
     if (r.type !== 'build.kit') return;
     expect(r.data.hasResults).toBe(true);
@@ -246,8 +246,6 @@ describe('build kit — a thin kit says what to try next', () => {
     expect(r.data.directMatch).toBe(true);
     expect(r.data.pages.length).toBeGreaterThan(0);
     expect(r.data.start).toMatchObject({name: r.data.pages[0].name, basis: 'direct'});
-    // A direct match needs no browsing aid.
-    expect(r.data.families).toBeUndefined();
     for (const page of r.data.pages) {
       expect(page.command).not.toMatch(/--skeleton/);
     }
@@ -312,7 +310,7 @@ describe('build kit — every page starts from a template', () => {
     expect(r.data.directMatch).toBe(true);
     expect(r.data.pages[0].name).toBe('incident-console');
     expect(r.data.start?.name).not.toBe('incident-console');
-    expect(r.data.start?.reason).toMatch(/`incident-console` matches the idea but is not ready yet/);
+    expect(r.data.start?.reason).toMatch(/`incident-console` matches but is not ready yet/);
   });
 
   it('does not start from a page that matched one incidental word', async () => {
@@ -329,34 +327,9 @@ describe('build kit — every page starts from a template', () => {
     expect(r.type).toBe('build.kit');
     if (r.type !== 'build.kit') return;
     expect(r.data.start).toBeNull();
-    expect(r.data.families).toBeUndefined();
   });
 
-  it('lists every ready page template by its own category family when the start is loose', async () => {
-    const r = await build('executive summary', {cwd: REPO});
-    expect(r.type).toBe('build.kit');
-    if (r.type !== 'build.kit') return;
-    const families = r.data.families ?? [];
-    const byName = new Map(families.map(f => [f.family, f.templates.map(t => t.name)]));
-    expect(byName.get('Dashboard')).toContain('dashboard-scorecard');
-    expect(byName.get('Shell')).toEqual(expect.arrayContaining(['blank', 'shell-top-nav']));
-    // Templates marked not ready are not offered as a start.
-    const all = families.flatMap(f => f.templates.map(t => t.name));
-    expect(all).not.toContain('table');
-    // Families are alphabetical, with the uncategorized "Other" last.
-    const names = families.map(f => f.family);
-    const named = names.filter(n => n !== 'Other');
-    expect(named).toEqual([...named].sort((a, b) => a.localeCompare(b)));
-    if (names.includes('Other')) expect(names.at(-1)).toBe('Other');
-  });
 
-  it('says how to adapt the template, keeping its spacing', async () => {
-    const r = await build('dashboard', {cwd: REPO});
-    expect(r.type).toBe('build.kit');
-    if (r.type !== 'build.kit') return;
-    expect(r.data.adapt.length).toBeGreaterThan(0);
-    expect(r.data.adapt.join(' ')).toMatch(/gap and padding/);
-  });
 
   it('keeps incidental description matches out of blocks and components', async () => {
     // Toast, Popover and TextInput all say "brief" somewhere in their
@@ -368,26 +341,54 @@ describe('build kit — every page starts from a template', () => {
     for (const noise of ['Toast', 'Popover', 'TextInput']) expect(names).not.toContain(noise);
   });
 
-  it('names the next closest templates, with their shape, when the start is a guess', async () => {
-    const r = await build('quarterly revenue dashboard', {cwd: REPO});
-    expect(r.type).toBe('build.kit');
-    if (r.type !== 'build.kit') return;
-    const alternatives = r.data.start?.alternatives ?? [];
-    expect(alternatives.length).toBeGreaterThan(0);
-    expect(alternatives.length).toBeLessThanOrEqual(2);
-    for (const alt of alternatives) {
-      expect(alt.name).not.toBe(r.data.start?.name);
-      expect(alt.shape).toMatch(/\.$/);
-      expect(alt.shape).not.toMatch(/\.\s/);
-      expect(alt.command).toBe(`astryx template ${alt.name} <path>`);
+  it('names the ranker\'s next two templates beside every start', async () => {
+    for (const idea of ['quarterly revenue dashboard', 'contact form']) {
+      const r = await build(idea, {cwd: REPO});
+      expect(r.type).toBe('build.kit');
+      if (r.type !== 'build.kit') return;
+      const alternatives = r.data.start?.alternatives ?? [];
+      expect(alternatives.length).toBeGreaterThan(0);
+      expect(alternatives.length).toBeLessThanOrEqual(2);
+      for (const alt of alternatives) {
+        expect(alt.name).not.toBe(r.data.start?.name);
+        expect(alt.description).toBeTruthy();
+        expect(alt.command).toBe(`astryx template ${alt.name} <path>`);
+      }
     }
   });
 
-  it('names no alternatives for a direct start', async () => {
+  it('calls a start direct only when search and the ranker agree', async () => {
     const r = await build('contact form', {cwd: REPO});
     expect(r.type).toBe('build.kit');
     if (r.type !== 'build.kit') return;
-    expect(r.data.start?.basis).toBe('direct');
-    expect(r.data.start?.alternatives).toEqual([]);
+    expect(r.data.directMatch).toBe(true);
+    expect(r.data.start).toMatchObject({name: r.data.pages[0].name, basis: 'direct'});
+  });
+
+  it('never lets a noisy search match pick the start', async () => {
+    // Search once matched "site" to the gallery's "side" and started a
+    // navigation bar from a gallery. The ranker alone picks the start now.
+    const r = await build('horizontal site navigation with a current section indicator', {cwd: REPO});
+    expect(r.type).toBe('build.kit');
+    if (r.type !== 'build.kit') return;
+    expect(r.data.start?.name).toBe('shell-top-nav');
+    expect(r.data.pages.map(p => p.name)).not.toContain('side-gallery');
+  });
+
+  it('starts a component in a container from a template with that frame', async () => {
+    // "in a modal": the modal is the frame, so the dialog template leads
+    // instead of the app shell.
+    const r = await build('saved drafts in a modal with resume and delete row actions', {cwd: REPO});
+    expect(r.type).toBe('build.kit');
+    if (r.type !== 'build.kit') return;
+    expect(r.data.start?.name).toBe('settings-dialog');
+  });
+
+  it('does not start from a template named only by a word that modifies another', async () => {
+    // "product" describes the response; it is not a product page.
+    const r = await build('an interactive command catalog with side-by-side product response and trace', {cwd: REPO});
+    expect(r.type).toBe('build.kit');
+    if (r.type !== 'build.kit') return;
+    expect(r.data.start?.name).not.toMatch(/^product-/);
   });
 });

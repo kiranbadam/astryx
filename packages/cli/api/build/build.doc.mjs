@@ -19,8 +19,8 @@ export const doc = {
     'The "build a page" entry point. Called with no query it returns the ' +
     'how-to-build-a-page playbook as data: the workflow steps with their ' +
     'commands, the on-system rules, and related lookups. Called with a query it names the page template to ' +
-    'START from (always one: the direct match, else the page template a ranker built for long descriptions puts ' +
-    'first, else the app shell), how to adapt it, ' +
+    'START from (always one: the page template a ranker built for long descriptions puts first, else the app ' +
+    'shell) and the next two templates, ' +
     'and the unified search grouped around it: the other close page templates, drop-in blocks, and ' +
     'idea-specific components/hooks, plus the always-on frame + foundation. A template carries the page ' +
     'frame and spacing, so the kit never recommends composing a page from components.',
@@ -63,7 +63,7 @@ export const doc = {
     {
       type: 'build.kit',
       description:
-        'The page template to start from and the kit around it: the echoed query, hasResults/matchCount/directMatch fields, `start` (the template to scaffold, its `template <name> <path>` command, whether it is a direct match, the closest page, or the fallback app shell, and up to two next-closest `alternatives` with their one-line shape), `adapt` (how to turn the template into the page), the closest page templates (≤3), drop-in block patterns (≤5), idea-specific components/hooks (≤6), `families` (every page template by family, when the start is not a direct match), and the always-on frame + foundation component-name arrays. Carries `hint` only when the kit came back thin — what to try instead, so a caller does not read a near-empty kit as "the package has nothing".',
+        "The page template to start from and the kit around it: the echoed query, hasResults/matchCount/directMatch fields, `start` (the template to scaffold, its `template <name> <path>` command, whether the page ranker's pick is also search's direct match, the closest page, or the fallback app shell, and the ranker's next two `alternatives`), search's closest page templates (≤3), drop-in block patterns (≤5), idea-specific components/hooks (≤6), and the always-on frame + foundation component-name arrays. Carries `hint` only when the kit came back thin — what to try instead, so a caller does not read a near-empty kit as \"the package has nothing\".",
     },
   ],
   throws: [

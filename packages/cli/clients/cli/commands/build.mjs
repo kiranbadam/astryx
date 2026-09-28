@@ -4,9 +4,9 @@
  * @file build command — thin wrapper with a stable result summary.
  *
  *   astryx build                  → the PLAYBOOK (how to build a page)
- *   astryx build "<what>"         → the TEMPLATE TO START FROM (always one: the
- *                                   closest page, or the app shell), how to adapt
- *                                   it, and the blocks and components around it.
+ *   astryx build "<what>"         → the TEMPLATE to start from (always one: the
+ *                                   closest page, or the app shell), other
+ *                                   templates, then blocks and components.
  *
  * All grouping/scoring lives in api/build; this file only parses flags and
  * renders. Command strings are prefixed for the caller's package manager here
@@ -43,41 +43,6 @@ const COMMAND_RECORDS = {
   fields: ['command', 'purpose'],
   format: {command: command => formatCliCommand(command)},
 };
-
-/**
- * What to do with the start, by why it was chosen. It follows the kit's own
- * one-sentence `start.reason` in the START FROM heading. `where` names the
- * sections to look in when the start is the wrong shape — only the ones the
- * kit actually prints.
- * @type {Record<'direct' | 'closest' | 'fallback', (where: string) => string>}
- */
-const START_NEXT = {
-  direct: () =>
-    'Scaffold it (replace <path> with the file or folder to write it to), then adapt it.',
-  closest: where =>
-    `Start from it anyway: a close template keeps the frame and spacing that composing from components loses. If its shape is wrong, check ${where}.`,
-  fallback: where =>
-    `The shell is a page frame with navigation and empty content. Fill it with blocks. If a template under ${where} has a closer layout, scaffold that one instead.`,
-};
-
-/**
- * One family as a line: `Dashboard: dashboard (Analytics), dashboard-scorecard, ...`.
- * The variant is dropped when the template's id already says it, so the line
- * carries only what the id does not.
- * @param {import('../../../api/build/build.type.mjs').BuildTemplateFamily} family
- */
-function familyLine({family, templates}) {
-  const names = templates.map(({name, variant}) => {
-    const idWords = new Set(name.toLowerCase().split(/[^a-z0-9]+/));
-    const redundant = variant
-      .toLowerCase()
-      .split(/[^a-z0-9]+/)
-      .filter(Boolean)
-      .every(word => idWords.has(word));
-    return redundant ? name : `${name} (${variant})`;
-  });
-  return `${family}: ${names.join(', ')}`;
-}
 
 /**
  * Emit the build playbook (shown when `build` is run with no query) — a
@@ -164,19 +129,16 @@ export function registerBuild(program) {
         matchCount,
         directMatch,
         start,
-        adapt,
         pages,
         blocks,
         domain,
-        families,
         frame,
         foundation,
         hint,
       } = result.data;
       // The kit spans domains, so its kind comes from the pieces themselves.
-      // `start` (which may be the fallback shell), `families`, `frame` and
-      // `foundation` are deliberately excluded: they are not what the query
-      // matched.
+      // `start` (which may be the fallback shell), `frame` and `foundation`
+      // are deliberately excluded: they are not what the query matched.
       const answered = resultSetOf([...pages, ...blocks, ...domain], {
         count: matchCount,
         empty: !hasResults,
@@ -197,144 +159,114 @@ export function registerBuild(program) {
         return answered;
       }
 
-      // Same JSON->text projection as search, but leaner: the section header
-      // already says the kind, so drop `domain`/`import` by default (they're in
-      // --json and under --verbose). Keeps each item to name/displayName/desc/cmd.
-      const fields = options.verbose
-        ? [
-            'name',
-            'domain',
-            'displayName',
-            'score',
-            'reason',
-            'import',
-            'description',
-            'command',
-          ]
-        : ['name', 'displayName', 'description', 'command'];
-      // Pages keep their whole description: it is the layout, which is what a
-      // reader compares. Blocks and components keep their first sentence.
+      // Four sections, one job each: the TEMPLATE to scaffold, OTHER
+      // TEMPLATES if its layout is wrong, BLOCKS for parts it lacks, and
+      // COMPONENTS for the rest. Descriptions stop at their first sentence and
+      // blocks and components share one command line in their heading; the
+      // JSON and --verbose carry everything.
+      const verbose = Boolean(options.verbose);
       /** @type {import('../formatters/index.mjs').RecordOptions} */
-      const pageOpts = {fields, format: {command: formatCliCommand}};
-      /** @type {import('../formatters/index.mjs').RecordOptions} */
-      const partOpts = options.verbose
-        ? pageOpts
-        : {
-            fields,
-            format: {command: formatCliCommand, description: firstSentence},
-          };
-
-      // Search's pages are the alternatives only when one of them matched the
-      // idea directly (a direct start's siblings, or a direct match that is not
-      // ready yet, which a reader who named it needs to see). Otherwise they
-      // are loose keyword hits, and NEXT CLOSEST — the ranker's runners-up —
-      // takes their place.
-      const otherPages =
-        start && directMatch ? pages.filter(p => p.name !== start.name) : [];
-      const lookIn = [
-        ...(start?.alternatives.length ? ['NEXT CLOSEST'] : []),
-        ...(families?.length ? ['ALL PAGE TEMPLATES'] : []),
-      ].join(', then ');
-
-      // A short legend up top: what this output is, how to use it, and the exact
-      // order of the sections below (only the ones actually present) so it reads
-      // clearly and parses predictably.
-      const sectionsOrder = start ? ['START FROM'] : [];
-      if (start?.alternatives.length) sectionsOrder.push('NEXT CLOSEST');
-      if (start) sectionsOrder.push('ADAPT IT');
-      if (otherPages.length) sectionsOrder.push('OTHER PAGE TEMPLATES');
-      if (families?.length) sectionsOrder.push('ALL PAGE TEMPLATES');
-      if (blocks.length) sectionsOrder.push('BLOCKS');
-      if (domain.length) sectionsOrder.push('DOMAIN COMPONENTS');
-      sectionsOrder.push('FRAME + FOUNDATION');
-      // The legend promises the complete order, so a section emitted after it
-      // has to be in it.
-      if (hint) sectionsOrder.push('FEW MATCHES');
+      const full = {
+        fields: [
+          'name',
+          'domain',
+          'displayName',
+          'score',
+          'reason',
+          'import',
+          'description',
+          'command',
+        ],
+        format: {command: formatCliCommand},
+      };
+      /** @param {string[]} fields */
+      const brief = fields => ({
+        fields,
+        format: {command: formatCliCommand, description: firstSentence},
+      });
+      // Blocks and components are extras: the text names the top few, and
+      // says how many more the JSON and --verbose carry.
+      const TOP = 3;
+      /** @param {unknown[]} items */
+      const shown = items => (verbose ? items : items.slice(0, TOP));
+      /** @param {unknown[]} items */
+      const more = items =>
+        !verbose && items.length > TOP
+          ? ` (top ${TOP} of ${items.length}; --verbose for all)`
+          : '';
 
       /** @type {import('../formatters/index.mjs').Block[]} */
       const out = [
         section(`Build kit for "${q}"`),
         text(
-          (start
-            ? 'Start from a page template: it already has the page frame, spacing, and section rhythm. ' +
-              'Scaffold the START FROM template into your project, then adapt it. Do not compose the page from components. ' +
-              'Changing a page you already have? Keep it, and use the blocks and components below.\n'
-            : 'This kit is narrowed by --type, so it names no page template to start from.\n') +
-            `Sections in order: ${sectionsOrder.join(', ')}.`,
+          start
+            ? 'Start from the TEMPLATE, fill it with BLOCKS, and use COMPONENTS only for what is left.\n' +
+                'Changing a page you already have? Keep it, and use only the blocks and components.'
+            : 'This kit is narrowed by --type, so it names no template.',
         ),
       ];
 
       if (start) {
         out.push(
           section(
-            'START FROM',
-            `${start.reason} ${START_NEXT[start.basis](lookIn || 'OTHER PAGE TEMPLATES')}`,
+            'TEMPLATE',
+            `${start.reason} ${
+              start.basis === 'fallback'
+                ? 'Scaffold it, then put blocks inside it.'
+                : 'Scaffold it, then replace its content. Keep its layout and spacing.'
+            }`,
           ),
-          record(start, {
-            fields: ['name', 'displayName', 'description', 'command'],
-            format: {command: formatCliCommand},
-          }),
-          ...(start.alternatives.length
-            ? [
-                section(
-                  'NEXT CLOSEST',
-                  'If the start is the wrong shape, one of these may fit better. Scaffold it instead:',
-                ),
-                records(start.alternatives, {
-                  fields: ['name', 'shape', 'command'],
+          record(
+            start,
+            verbose
+              ? {
+                  fields: ['name', 'displayName', 'description', 'command'],
                   format: {command: formatCliCommand},
-                }),
-              ]
-            : []),
-          section('ADAPT IT', 'Turn the scaffolded template into your page:'),
-          list(adapt),
-        );
-      }
-      if (otherPages.length) {
-        out.push(
-          section(
-            'OTHER PAGE TEMPLATES',
-            `If the start is the wrong shape, scaffold one of these instead: ${formatCliCommand('template <name> <path>')}`,
+                }
+              : {
+                  fields: ['name', 'description', 'command'],
+                  format: {command: formatCliCommand},
+                },
           ),
-          records(otherPages, pageOpts),
         );
-      }
-      if (families?.length) {
-        out.push(
-          section(
-            'ALL PAGE TEMPLATES',
-            'Every page template, by family. Match on layout, not topic: numbers and charts are a Dashboard, rows of records a Table, long-form reading Content, a sequence of inputs a Form. ' +
-              `If one has a closer layout than the start, scaffold it instead: ${formatCliCommand('template <name> <path>')}`,
-          ),
-          list(families.map(familyLine)),
-        );
+        if (start.alternatives.length) {
+          out.push(
+            section(
+              'OTHER TEMPLATES',
+              `If the layout is wrong, scaffold one of these instead. All templates: ${formatCliCommand('template --list')}`,
+            ),
+            records(
+              start.alternatives,
+              verbose ? full : brief(['name', 'description', 'command']),
+            ),
+          );
+        }
       }
       if (blocks.length) {
         out.push(
           section(
             'BLOCKS',
-            'Drop-in patterns for parts the template lacks. Put each one inside a section.',
+            `Ready-made sections for parts the template lacks${more(blocks)}. Print one: ${formatCliCommand('template <name>')}`,
           ),
-          records(blocks, partOpts),
+          records(
+            shown(blocks),
+            verbose ? full : brief(['name', 'description']),
+          ),
         );
       }
-      if (domain.length) {
-        out.push(
-          section(
-            'DOMAIN COMPONENTS',
-            'Components for what is left. Read their props before you use them.',
-          ),
-          records(domain, partOpts),
-        );
-      }
-
-      // Last before the hint: every page template already uses these, so they
-      // are for filling a gap, never for laying out the page.
       out.push(
         section(
-          'FRAME + FOUNDATION',
-          'Already inside every page template. Reach for them only to fill a gap.',
+          'COMPONENTS',
+          `For what the template and blocks do not cover${more(domain)}. Read one: ${formatCliCommand('component <name>')}`,
         ),
+        ...(domain.length
+          ? [
+              records(
+                shown(domain),
+                verbose ? full : brief(['name', 'description']),
+              ),
+            ]
+          : []),
         record({frame, foundation}),
       );
 

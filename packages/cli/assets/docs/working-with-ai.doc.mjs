@@ -66,7 +66,7 @@ npx @astryxdesign/cli init --features agents --agent muse      # AGENTS.md (Muse
           type: 'list',
           style: 'ordered',
           items: [
-            '`astryx build "<idea>"`: get the page template to start from (always one: the closest match, or the app shell), how to adapt it, and the blocks and components for the parts it lacks',
+            '`astryx build "<idea>"`: get the page template to start from (always one: the closest match, or the app shell), two other templates, and the blocks and components for the parts it lacks',
             '`astryx template <name> <path>`: scaffold that template into the project, keep its frame and spacing, and replace its content',
             '`astryx component <Name>`: read props and examples for every component used',
           ],

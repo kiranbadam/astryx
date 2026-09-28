@@ -3,14 +3,17 @@
 /**
  * @file build.kit leaf — the page template to start from, and the kit around it.
  *
- * Every kit names a page template to START from: the direct match when search
- * finds one, else the page the page ranker (rank.mjs) puts first, else the app
- * shell. A template carries the page frame, the spacing, and the section
- * rhythm; a page composed from components carries none of that, so the kit
- * never recommends composing from scratch while a template exists. Around the
- * start it groups the unified search into the closest page templates, the
- * blocks that cover parts, and the domain components to fill gaps, plus the
- * always-on frame + foundation names.
+ * Every kit names a page template to START from: the page the page ranker
+ * (rank.mjs) puts first when it has the evidence to lead, else the app shell.
+ * The ranker is the only thing that picks the start, so one noisy signal —
+ * search matching "site" to a gallery's "side" — cannot choose the page. A
+ * template carries the page frame, the spacing, and the section rhythm; a page
+ * composed from components carries none of that, so the kit never recommends
+ * composing from scratch while a template exists. Next to the start it names
+ * the ranker's next two templates, then groups the unified search into the
+ * blocks that cover parts and the domain components to fill gaps, plus the
+ * always-on frame + foundation names. `pages` and `directMatch` keep search's
+ * own view for callers that read them.
  *
  * The kit carries RAW `SearchResultEntry` objects and static name arrays only —
  * never pre-formatted command strings. All CLI prefixing (formatCliCommand /
@@ -28,7 +31,6 @@ import {search} from '../../search/search.mjs';
 import {getResultCoverage} from '../../search/coverage.mjs';
 import {loadPageTemplates} from '../_adapter.mjs';
 import {pickAlternatives, pickStart, rankPages} from './rank.mjs';
-import {firstSentence} from '../../../foundation/text/string-utils.mjs';
 
 /** A page at/above this score is a confident direct match. */
 const PAGE_DIRECT = 95;
@@ -95,66 +97,32 @@ const FOUNDATION = [
 const ALWAYS = new Set([...FRAME, ...FOUNDATION]);
 
 /**
- * How to turn the scaffolded template into the page. Carried as data so a
- * JSON caller gets the same guidance the terminal shows. The spacing in a
- * template is the part a reader is most likely to lose by "cleaning up", so
- * the rules say what to keep before what to change.
- */
-const ADAPT = [
-  "Keep the template's page frame, region widths, and gap and padding values. They are the spacing; do not re-derive them.",
-  'Replace the sample data, copy, and section contents with your own. Keep the section order unless your page needs another.',
-  'Delete whole sections you do not need. For a part the template lacks, put a block from this kit inside a section.',
-  'Do not rebuild the layout from components, and do not add <div> or CSS for spacing.',
-];
-
-/**
  * @typedef {import('../../search/search.type.mjs').SearchResultEntry} SearchResultEntry
  * @typedef {import('../build.type.mjs').BuildStart} BuildStart
- * @typedef {import('../build.type.mjs').BuildTemplateFamily} BuildTemplateFamily
  * @typedef {import('../_adapter.mjs').PageTemplate} PageTemplate
  */
 
 /**
- * The page templates grouped by the family their own `category` names (the
- * text before " - "). Derived from each template's descriptor, never from a
- * list kept here, so an integration's templates join their family by
- * declaring it. Templates without a category group under "Other".
- *
- * @param {PageTemplate[]} catalog
- * @returns {BuildTemplateFamily[]}
+ * A page template as the kit names it: the scaffold command, with `<path>` a
+ * placeholder for the file or folder to write it to.
+ * @param {PageTemplate} t
  */
-function familiesOf(catalog) {
-  /** @type {Map<string, {name: string, variant: string}[]>} */
-  const byFamily = new Map();
-  for (const t of catalog) {
-    const [head, ...rest] = t.category.split(' - ');
-    const family = head.trim() || 'Other';
-    const variant = rest.join(' - ').trim() || t.displayName;
-    const members = byFamily.get(family) ?? [];
-    members.push({name: t.name, variant});
-    byFamily.set(family, members);
-  }
-  return [...byFamily.entries()]
-    .sort(
-      ([a], [b]) =>
-        Number(a === 'Other') - Number(b === 'Other') || a.localeCompare(b),
-    )
-    .map(([family, templates]) => ({
-      family,
-      templates: templates.sort((a, b) => a.name.localeCompare(b.name)),
-    }));
-}
+const asTemplate = t => ({
+  name: t.name,
+  displayName: t.displayName,
+  description: t.description,
+  command: `astryx template ${t.name} <path>`,
+});
 
 /**
- * The template to start from: search's direct match when there is one, else
- * the ready page the ranker puts first when it has the evidence to lead, else
- * the first fallback shell the project can scaffold. Null only when the
- * project has no page template to offer at all.
+ * The template to start from: the ready page the ranker puts first when it
+ * has the evidence to lead, else the first fallback shell the project can
+ * scaffold. Null only when the project has no page template to offer at all.
  *
- * A direct match leads only when its template is ready. The ranker sees only
- * ready templates, so neither path starts a page from one still marked not
- * ready; such a template stays listed in `pages`, where a reader who asked for
- * it by name still finds it.
+ * `direct` means two independent signals agree: the ranker's pick is also
+ * search's direct match. The ranker sees only ready templates, so a template
+ * still marked not ready is never the start; when search matched one directly
+ * the reason names it, so the reader knows why the kit starts elsewhere.
  *
  * @param {import('./rank.mjs').RankedPage[]} ranked
  * @param {SearchResultEntry[]} pages
@@ -163,46 +131,37 @@ function familiesOf(catalog) {
  * @returns {Omit<BuildStart, 'alternatives'> | null}
  */
 function chooseStart(ranked, pages, directMatch, catalog) {
-  if (directMatch && catalog.some(t => t.name === pages[0].name)) {
-    const top = pages[0];
-    return {
-      name: top.name,
-      displayName: top.displayName ?? top.name,
-      description: top.description,
-      command: `astryx template ${top.name} <path>`,
-      basis: 'direct',
-      reason: 'This page template matches the idea directly.',
-    };
-  }
-  // A direct match that is not ready yet is still named, so the reader knows
-  // why the kit starts elsewhere.
-  const unready = directMatch ? pages[0].name : null;
+  const direct = directMatch ? pages[0].name : null;
+  const unready =
+    direct && !catalog.some(t => t.name === direct) ? direct : null;
   const pick = pickStart(ranked);
   const closest = pick && catalog.find(t => t.name === pick.name);
   if (closest) {
+    const agrees = closest.name === direct;
     return {
-      name: closest.name,
-      displayName: closest.displayName,
-      description: closest.description,
-      command: `astryx template ${closest.name} <path>`,
-      basis: 'closest',
-      reason: unready
-        ? `\`${unready}\` matches the idea but is not ready yet; this is the closest ready page template.`
-        : 'No page template matches the idea exactly; this one has the closest layout.',
+      ...asTemplate(closest),
+      basis: agrees ? 'direct' : 'closest',
+      reason: agrees
+        ? 'Matches the idea.'
+        : unready
+          ? `\`${unready}\` matches but is not ready yet; this is the closest ready template.`
+          : 'The closest template; none is exactly this page.',
     };
   }
   for (const id of FALLBACK_STARTS) {
     const shell = catalog.find(t => t.name === id);
     if (shell) {
+      // The shell can also be the ranker's best guess without the evidence to
+      // lead ("horizontal site navigation"); say so rather than "no match".
+      const nearest = ranked[0]?.name === shell.name && ranked[0].hits > 0;
       return {
-        name: shell.name,
-        displayName: shell.displayName,
-        description: shell.description,
-        command: `astryx template ${shell.name} <path>`,
+        ...asTemplate(shell),
         basis: 'fallback',
         reason: unready
-          ? `\`${unready}\` matches the idea but is not ready yet, so the page starts from the app shell.`
-          : 'No page template matched the idea, so the page starts from the app shell.',
+          ? `\`${unready}\` matches but is not ready yet, so start from the app shell.`
+          : nearest
+            ? 'No template is a clear match; the app shell is the closest.'
+            : 'No template matched, so start from the app shell.',
       };
     }
   }
@@ -282,7 +241,10 @@ export async function buildKit(query, options = {}) {
    */
   const pages = directMatch
     ? matchedPages
-    : matchedPages.map(page => ({...page, command: `${page.command} --skeleton`}));
+    : matchedPages.map(page => ({
+        ...page,
+        command: `${page.command} --skeleton`,
+      }));
 
   // A kit narrowed to components or hooks has no page to start from; every
   // other kit does, so the reader is never left to compose a page from scratch.
@@ -292,37 +254,17 @@ export async function buildKit(query, options = {}) {
   const chosen = wantsPages
     ? chooseStart(ranked, matchedPages, directMatch, catalog)
     : null;
-  // When the start is a guess, name the next closest templates with their
-  // one-line shape: the reader judges meaning better than keywords do, and
-  // an acceptable template is in these three far more often than it is the
-  // start alone.
+  // Name the ranker's next two templates beside the start: the reader judges
+  // meaning better than keywords do, and an acceptable template is in these
+  // three far more often than it is the start alone.
   /** @type {BuildStart | null} */
   const start = chosen && {
     ...chosen,
-    alternatives:
-      chosen.basis === 'direct'
-        ? []
-        : pickAlternatives(ranked, chosen.name).flatMap(r => {
-            const t = catalog.find(c => c.name === r.name);
-            return t
-              ? [
-                  {
-                    name: t.name,
-                    displayName: t.displayName,
-                    shape: firstSentence(t.description),
-                    command: `astryx template ${t.name} <path>`,
-                  },
-                ]
-              : [];
-          }),
+    alternatives: pickAlternatives(ranked, chosen.name).flatMap(r => {
+      const t = catalog.find(c => c.name === r.name);
+      return t ? [asTemplate(t)] : [];
+    }),
   };
-  // When the start is not a direct match, the reader may know a closer layout
-  // than keyword search found. Name every page template, by family, so that
-  // choice is one look away instead of a 2,000-line `template --list`.
-  const families =
-    start && start.basis !== 'direct' && catalog.length > 0
-      ? familiesOf(catalog)
-      : undefined;
 
   // What to try when the kit comes back thin. Keyword search over a design
   // system misses in a predictable way — the reader's words and the package's
@@ -353,11 +295,9 @@ export async function buildKit(query, options = {}) {
       matchCount,
       directMatch,
       start,
-      adapt: ADAPT,
       pages,
       blocks,
       domain,
-      families,
       frame: FRAME,
       foundation: FOUNDATION,
       hint,

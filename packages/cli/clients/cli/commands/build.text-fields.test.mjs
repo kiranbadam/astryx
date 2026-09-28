@@ -39,6 +39,7 @@ describe('build kit text fields mirror the JSON keys', () => {
     expect(fields).toContain('frame');
     // The start is printed as a record, so its fields are checked too.
     expect(fields).toContain('command');
+    expect(fields).toContain('displayName');
     for (const field of fields) expect(keys).toContain(field);
   }, SLOW);
 });

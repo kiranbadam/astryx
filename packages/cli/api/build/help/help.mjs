@@ -31,7 +31,7 @@ export function buildHelp() {
           title: 'Find the page template to start from',
           commands: [{command: 'build "<what you\'re building>"'}],
           returns:
-            'the [page] template to start from (always one: the closest match, or the app shell when nothing matches), how to adapt it, and the [block]s and [component]s for the parts it lacks',
+            'the [page] template to start from (always one: the closest match, or the app shell when nothing matches), the next two templates, and the [block]s and [component]s for the parts it lacks',
         },
         {
           title: 'Scaffold that template into your project',
@@ -43,12 +43,12 @@ export function buildHelp() {
           ],
         },
         {
-          title:
-            'Adapt it: keep its frame and spacing, replace its content',
+          title: 'Adapt it: keep its frame and spacing, replace its content',
           commands: [
             {
               command: 'template <BlockName>',
-              purpose: 'print a block to put inside a section, for a part the template lacks',
+              purpose:
+                'print a block to put inside a section, for a part the template lacks',
             },
             {
               command: 'component <Name>',

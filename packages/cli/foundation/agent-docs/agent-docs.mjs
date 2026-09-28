@@ -432,7 +432,7 @@ export function generateCompressedIndex(
   // Workflow — `build` is the front door, and every page starts from the
   // template it names.
   lines.push('WORKFLOW — start every page from a template. Never lay out a page from scratch:');
-  lines.push('1. `astryx build "<idea>"` — START HERE: names the [page] template to start from (always one: the closest match, or the app shell), how to adapt it, and the [block]s + [component]s for parts it lacks. No args = full playbook.');
+  lines.push('1. `astryx build "<idea>"` — START HERE: names the [page] template to start from (always one: the closest match, or the app shell), two other templates, and the [block]s + [component]s for parts it lacks. No args = full playbook.');
   lines.push('2. `astryx template <name> <path>` — scaffold that template into your project. Keep its frame, gap and padding; replace its data, copy and sections; delete sections you do not need.');
   lines.push('3. `astryx template <Block>` for a part the template lacks; `astryx component <Name>` for props + examples before you use or change a component.');
   lines.push('Changing a page you already have? Keep it: skip step 2 and add blocks and components inside its sections.');
