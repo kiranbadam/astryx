@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "repository": "facebook/astryx",
+  "pullRequest": {
+    "number": 6693,
+    "headSha": "f647057d03f620736ccc3adf5516b4753ebd1264",
+    "headRef": "starlog-remediation-audit",
+    "headRepository": "facebook/astryx",
+    "headRepositoryId": "1131202426"
+  },
+  "sourceRun": {
+    "id": 36471979494,
+    "attempt": 1,
+    "conclusion": "success"
+  },
+  "targets": {
+    "storybook": {
+      "available": false,
+      "path": "pr/6693/",
+      "indexSha256": null
+    },
+    "sandbox": {
+      "available": true,
+      "path": "pr/6693/sandbox/",
+      "indexSha256": "ad38c196726717604d841b24a18530c74828fa57c18386f54d478f1a529f7ddc"
+    }
+  }
+}

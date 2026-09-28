@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "repository": "facebook/astryx",
+  "pullRequest": {
+    "number": 6617,
+    "headSha": "c448a98df075cd9372f5cc6aafceb1cde8c26b56",
+    "headRef": "chore/cli-structure-lint",
+    "headRepository": "facebook/astryx",
+    "headRepositoryId": "1131202426"
+  },
+  "sourceRun": {
+    "id": 36480628494,
+    "attempt": 1,
+    "conclusion": "success"
+  },
+  "targets": {
+    "storybook": {
+      "available": false,
+      "path": "pr/6617/",
+      "indexSha256": null
+    },
+    "sandbox": {
+      "available": true,
+      "path": "pr/6617/sandbox/",
+      "indexSha256": "68a4b38b96fc2a3586ba60e4085d29cad8aa90573ecf7b4b5b4557f80d5b6c91"
+    }
+  }
+}

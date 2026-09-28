@@ -1,0 +1,1 @@
+import{i as e}from"./useTheme-Cyfiaqcr.js";import{t}from"./globalIconRegistry-fCK__u0F.js";function n(n){return t(n,e())}export{n as t};

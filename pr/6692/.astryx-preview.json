@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "repository": "facebook/astryx",
+  "pullRequest": {
+    "number": 6692,
+    "headSha": "ae2778a0367ed2e0b977b023418c5a07b498f3ad",
+    "headRef": "agentcloud/ast-040-consumer-file-protection",
+    "headRepository": "facebook/astryx",
+    "headRepositoryId": "1131202426"
+  },
+  "sourceRun": {
+    "id": 36444020040,
+    "attempt": 1,
+    "conclusion": "success"
+  },
+  "targets": {
+    "storybook": {
+      "available": false,
+      "path": "pr/6692/",
+      "indexSha256": null
+    },
+    "sandbox": {
+      "available": true,
+      "path": "pr/6692/sandbox/",
+      "indexSha256": "5b99ae1b4a1d6b2d216c8503a2b3f6ef2831db0878f9239e9b343c3452875dc9"
+    }
+  }
+}

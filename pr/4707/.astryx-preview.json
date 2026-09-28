@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "repository": "facebook/astryx",
+  "pullRequest": {
+    "number": 4707,
+    "headSha": "0cc06fc072837bfeadd1d64441dea379ed9aaee2",
+    "headRef": "fix/cli-skeleton-resolvable-components",
+    "headRepository": "MeGaurav4/astryx",
+    "headRepositoryId": "1291109145"
+  },
+  "sourceRun": {
+    "id": 36296529515,
+    "attempt": 1,
+    "conclusion": "success"
+  },
+  "targets": {
+    "storybook": {
+      "available": false,
+      "path": "pr/4707/",
+      "indexSha256": null
+    },
+    "sandbox": {
+      "available": true,
+      "path": "pr/4707/sandbox/",
+      "indexSha256": "d5467841823009500552d9b153bdff194ad14b1a0cff62da16fbfaef013c85c8"
+    }
+  }
+}

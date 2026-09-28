@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "repository": "facebook/astryx",
+  "pullRequest": {
+    "number": 5204,
+    "headSha": "21dff0d965d03f08d0e092694b65715dba6670c7",
+    "headRef": "ak-5160-richtext-blocks",
+    "headRepository": "AKnassa/astryx",
+    "headRepositoryId": "1286656571"
+  },
+  "sourceRun": {
+    "id": 36262389951,
+    "attempt": 1,
+    "conclusion": "success"
+  },
+  "targets": {
+    "storybook": {
+      "available": false,
+      "path": "pr/5204/",
+      "indexSha256": null
+    },
+    "sandbox": {
+      "available": true,
+      "path": "pr/5204/sandbox/",
+      "indexSha256": "456bce98866dbdb3be70adaed6f758890e7bc7c6d82732874dfea040d61dd6d4"
+    }
+  }
+}

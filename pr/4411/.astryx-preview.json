@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "repository": "facebook/astryx",
+  "pullRequest": {
+    "number": 4411,
+    "headSha": "89b933b87205e832b58385370cdda4a206e7b425",
+    "headRef": "ak-977-vega-charts-theming",
+    "headRepository": "AKnassa/astryx",
+    "headRepositoryId": "1286656571"
+  },
+  "sourceRun": {
+    "id": 36265243101,
+    "attempt": 1,
+    "conclusion": "success"
+  },
+  "targets": {
+    "storybook": {
+      "available": false,
+      "path": "pr/4411/",
+      "indexSha256": null
+    },
+    "sandbox": {
+      "available": true,
+      "path": "pr/4411/sandbox/",
+      "indexSha256": "8d2e72869dc87df78792b30006c6d8dda9de42874fdd18a5a6e5d03b1a5a759e"
+    }
+  }
+}

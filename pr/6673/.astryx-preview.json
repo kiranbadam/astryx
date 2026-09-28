@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "repository": "facebook/astryx",
+  "pullRequest": {
+    "number": 6673,
+    "headSha": "5f0d5eb8015917b7489d9d486f59f01ddfd4e6da",
+    "headRef": "markdown-upgrade/18-katex-lazy-styles",
+    "headRepository": "facebook/astryx",
+    "headRepositoryId": "1131202426"
+  },
+  "sourceRun": {
+    "id": 36462470099,
+    "attempt": 1,
+    "conclusion": "failure"
+  },
+  "targets": {
+    "storybook": {
+      "available": false,
+      "path": "pr/6673/",
+      "indexSha256": null
+    },
+    "sandbox": {
+      "available": false,
+      "path": "pr/6673/sandbox/",
+      "indexSha256": null
+    }
+  }
+}

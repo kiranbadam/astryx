@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "repository": "facebook/astryx",
+  "pullRequest": {
+    "number": 4689,
+    "headSha": "784dad1cdc3e0f1607ef8dc6e824eebd9022ac5c",
+    "headRef": "rocky/issue-4681-aria-allowed-attr",
+    "headRepository": "AKnassa/astryx",
+    "headRepositoryId": "1286656571"
+  },
+  "sourceRun": {
+    "id": 36265241539,
+    "attempt": 1,
+    "conclusion": "success"
+  },
+  "targets": {
+    "storybook": {
+      "available": false,
+      "path": "pr/4689/",
+      "indexSha256": null
+    },
+    "sandbox": {
+      "available": true,
+      "path": "pr/4689/sandbox/",
+      "indexSha256": "d4a3ba4a6d065fe3fe5ae14f2f9b3424edd0df48f844a58fcc024fc7d35c98d6"
+    }
+  }
+}

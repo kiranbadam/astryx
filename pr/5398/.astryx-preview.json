@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "repository": "facebook/astryx",
+  "pullRequest": {
+    "number": 5398,
+    "headSha": "47f85e1fb1e3d620f2c8ae81c1920b9513e42736",
+    "headRef": "fix/hovercard-controlled-open-anchoring",
+    "headRepository": "HelloOjasMutreja/astryx",
+    "headRepositoryId": "1309798825"
+  },
+  "sourceRun": {
+    "id": 36407903483,
+    "attempt": 1,
+    "conclusion": "success"
+  },
+  "targets": {
+    "storybook": {
+      "available": false,
+      "path": "pr/5398/",
+      "indexSha256": null
+    },
+    "sandbox": {
+      "available": true,
+      "path": "pr/5398/sandbox/",
+      "indexSha256": "2516b6d08486413523db48ee6faadff78232a5752ed883e243c1135650650301"
+    }
+  }
+}

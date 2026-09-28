@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "repository": "facebook/astryx",
+  "pullRequest": {
+    "number": 6672,
+    "headSha": "5a35dbd3fadd0e474fe2d2c7c0deedfdac80b1b3",
+    "headRef": "markdown-upgrade/17-shiki",
+    "headRepository": "facebook/astryx",
+    "headRepositoryId": "1131202426"
+  },
+  "sourceRun": {
+    "id": 36462470220,
+    "attempt": 1,
+    "conclusion": "failure"
+  },
+  "targets": {
+    "storybook": {
+      "available": false,
+      "path": "pr/6672/",
+      "indexSha256": null
+    },
+    "sandbox": {
+      "available": false,
+      "path": "pr/6672/sandbox/",
+      "indexSha256": null
+    }
+  }
+}

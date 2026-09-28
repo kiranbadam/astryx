@@ -1,0 +1,1 @@
+import{q as e}from"./padding.stylex-C-GcuG1E.js";import{zt as t}from"./index-CmXajDE0.js";import{n}from"./BlockDocContext-OR6nr7Dr.js";var r=e();function i(){return(0,r.jsx)(t,{href:`#`,isStandalone:!0,children:`Documentation`})}function a(){return(0,r.jsx)(n,{children:(0,r.jsx)(i,{})})}export{a as default};
