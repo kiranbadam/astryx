@@ -92,9 +92,10 @@ import {setResultCoverage} from './coverage.mjs';
  * Synonym / intent map: product-language terms an agent is likely to type,
  * expanded to the catalog's vocabulary so oblique queries still rank. Keys and
  * values are matched bidirectionally (typing any value also pulls in the key
- * and its siblings). Lowercase, single words or short phrases.
+ * and its siblings). Lowercase, single words or short phrases. Exported for
+ * `build`, whose page ranker expands a query with the same vocabulary.
  */
-const SYNONYMS = {
+export const SYNONYMS = {
   dashboard: [
     'overview',
     'analytics',
@@ -172,8 +173,9 @@ export const SEARCH_DOMAINS = ['component', 'hook', 'doc', 'template'];
 /**
  * Filler words stripped from multi-word queries so natural-language phrasing
  * ("a page where you can see business stats") ranks on its content words.
+ * Exported for `build`, whose page ranker strips the same words.
  */
-const STOPWORDS = new Set([
+export const STOPWORDS = new Set([
   'a',
   'an',
   'the',

@@ -1,7 +1,7 @@
 // Copyright (c) Meta Platforms, Inc. and affiliates.
 
 /**
- * @file Tests for the build API (playbook + composition kit).
+ * @file Tests for the build API (playbook + the template-first kit).
  */
 
 import {describe, it, expect, vi} from 'vitest';
@@ -76,10 +76,10 @@ describe('build API', () => {
     expect(blocks.length).toBeLessThanOrEqual(5);
     expect(domain.length).toBeLessThanOrEqual(6);
 
-    // Score floors: pages ≥ PAGE_FLOOR(50); blocks/domain ≥ DOMAIN_FLOOR(55).
+    // Score floors: pages ≥ PAGE_FLOOR(50); blocks/domain ≥ DOMAIN_FLOOR(60).
     for (const p of pages) expect(p.score).toBeGreaterThanOrEqual(50);
-    for (const b of blocks) expect(b.score).toBeGreaterThanOrEqual(55);
-    for (const d of domain) expect(d.score).toBeGreaterThanOrEqual(55);
+    for (const b of blocks) expect(b.score).toBeGreaterThanOrEqual(60);
+    for (const d of domain) expect(d.score).toBeGreaterThanOrEqual(60);
 
     // directMatch iff the top page is a confident match (PAGE_DIRECT = 95).
     expect(directMatch).toBe(pages.length > 0 && pages[0].score >= 95);
@@ -224,12 +224,30 @@ describe('build kit — a thin kit says what to try next', () => {
     }
   });
 
+  it('still starts from the closest page on a loose match, and scaffolds it', async () => {
+    // A skeleton is a 35-line excerpt: a reader who studies it and composes
+    // the rest loses the spacing the template exists to carry. A loose match
+    // is still the best start there is, so `start` scaffolds it.
+    const r = await build('executive summary', {cwd: REPO});
+    expect(r.type).toBe('build.kit');
+    if (r.type !== 'build.kit') return;
+    expect(r.data.directMatch).toBe(false);
+    expect(r.data.start).toMatchObject({
+      name: 'dashboard-scorecard',
+      basis: 'closest',
+      command: 'astryx template dashboard-scorecard <path>',
+    });
+  });
+
   it('recommends scaffolding on a direct match', async () => {
     const r = await build('contact form', {cwd: REPO});
     expect(r.type).toBe('build.kit');
     if (r.type !== 'build.kit') return;
     expect(r.data.directMatch).toBe(true);
     expect(r.data.pages.length).toBeGreaterThan(0);
+    expect(r.data.start).toMatchObject({name: r.data.pages[0].name, basis: 'direct'});
+    // A direct match needs no browsing aid.
+    expect(r.data.families).toBeUndefined();
     for (const page of r.data.pages) {
       expect(page.command).not.toMatch(/--skeleton/);
     }
@@ -238,12 +256,13 @@ describe('build kit — a thin kit says what to try next', () => {
   it('keeps the recommendation package-manager-agnostic', async () => {
     // Appending a flag must not turn into prefixing an invocation; that stays
     // the renderer's job.
-    const r = await build('notifications', {cwd: REPO});
+    const r = await build('executive summary', {cwd: REPO});
     expect(r.type).toBe('build.kit');
     if (r.type !== 'build.kit') return;
     for (const page of r.data.pages) {
       expect(page.command).not.toMatch(/^(pnpm|npm|yarn|bun|npx)\b/);
     }
+    expect(r.data.start?.command).not.toMatch(/^(pnpm|npm|yarn|bun|npx)\b/);
   });
 
   it('keeps recovery commands bare, for the caller to render', async () => {
@@ -256,5 +275,96 @@ describe('build kit — a thin kit says what to try next', () => {
       expect(c).not.toMatch(/^astryx\b/);
       expect(c).not.toMatch(/pnpm|npx|yarn|bun/);
     }
+  });
+});
+
+describe('build kit — every page starts from a template', () => {
+  it('falls back to the app shell when no page template matches', async () => {
+    // Before, an unmatched idea got "compose from AppShell": the one path
+    // with no frame, no spacing, and no section rhythm.
+    const r = await build('zzznomatch99', {cwd: REPO});
+    expect(r.type).toBe('build.kit');
+    if (r.type !== 'build.kit') return;
+    expect(r.data.hasResults).toBe(false);
+    expect(r.data.start).toMatchObject({
+      name: 'shell-top-nav',
+      basis: 'fallback',
+      command: 'astryx template shell-top-nav <path>',
+    });
+    expect(r.data.start?.description).toBeTruthy();
+  });
+
+  it('starts a long idea from the family its words name', async () => {
+    // The coverage gate cannot tell layout words from subject matter: every
+    // dashboard covers one term of three, so search offers no page at all.
+    // The ranker still starts the page from the dashboard.
+    const r = await build('quarterly revenue dashboard', {cwd: REPO});
+    expect(r.type).toBe('build.kit');
+    if (r.type !== 'build.kit') return;
+    expect(r.data.start).toMatchObject({name: 'dashboard', basis: 'closest'});
+    expect(r.data.directMatch).toBe(false);
+  });
+
+  it('does not start from a direct match that is not ready yet, and says so', async () => {
+    const r = await build('incident console', {cwd: REPO});
+    expect(r.type).toBe('build.kit');
+    if (r.type !== 'build.kit') return;
+    expect(r.data.directMatch).toBe(true);
+    expect(r.data.pages[0].name).toBe('incident-console');
+    expect(r.data.start?.name).not.toBe('incident-console');
+    expect(r.data.start?.reason).toMatch(/`incident-console` matches the idea but is not ready yet/);
+  });
+
+  it('does not start from a page that matched one incidental word', async () => {
+    // A work-item detail page mentions a feed in its description. That is a
+    // worse start for a news feed than the app shell.
+    const r = await build('news feed', {cwd: REPO});
+    expect(r.type).toBe('build.kit');
+    if (r.type !== 'build.kit') return;
+    expect(r.data.start?.basis).toBe('fallback');
+  });
+
+  it('names no start when the kit is narrowed to components', async () => {
+    const r = await build('dashboard', {cwd: REPO, type: 'component'});
+    expect(r.type).toBe('build.kit');
+    if (r.type !== 'build.kit') return;
+    expect(r.data.start).toBeNull();
+    expect(r.data.families).toBeUndefined();
+  });
+
+  it('lists every ready page template by its own category family when the start is loose', async () => {
+    const r = await build('executive summary', {cwd: REPO});
+    expect(r.type).toBe('build.kit');
+    if (r.type !== 'build.kit') return;
+    const families = r.data.families ?? [];
+    const byName = new Map(families.map(f => [f.family, f.templates.map(t => t.name)]));
+    expect(byName.get('Dashboard')).toContain('dashboard-scorecard');
+    expect(byName.get('Shell')).toEqual(expect.arrayContaining(['blank', 'shell-top-nav']));
+    // Templates marked not ready are not offered as a start.
+    const all = families.flatMap(f => f.templates.map(t => t.name));
+    expect(all).not.toContain('table');
+    // Families are alphabetical, with the uncategorized "Other" last.
+    const names = families.map(f => f.family);
+    const named = names.filter(n => n !== 'Other');
+    expect(named).toEqual([...named].sort((a, b) => a.localeCompare(b)));
+    if (names.includes('Other')) expect(names.at(-1)).toBe('Other');
+  });
+
+  it('says how to adapt the template, keeping its spacing', async () => {
+    const r = await build('dashboard', {cwd: REPO});
+    expect(r.type).toBe('build.kit');
+    if (r.type !== 'build.kit') return;
+    expect(r.data.adapt.length).toBeGreaterThan(0);
+    expect(r.data.adapt.join(' ')).toMatch(/gap and padding/);
+  });
+
+  it('keeps incidental description matches out of blocks and components', async () => {
+    // Toast, Popover and TextInput all say "brief" somewhere in their
+    // descriptions; none of them is part of a brief.
+    const r = await build('weekly brief', {cwd: REPO});
+    expect(r.type).toBe('build.kit');
+    if (r.type !== 'build.kit') return;
+    const names = [...r.data.blocks, ...r.data.domain].map(e => e.name);
+    for (const noise of ['Toast', 'Popover', 'TextInput']) expect(names).not.toContain(noise);
   });
 });

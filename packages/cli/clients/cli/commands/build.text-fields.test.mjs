@@ -21,6 +21,7 @@ describe('build kit text fields mirror the JSON keys', () => {
     const {data} = JSON.parse(json.stdout);
     const keys = new Set([
       ...Object.keys(data),
+      ...Object.keys(data.start ?? {}),
       ...[...data.pages, ...data.blocks, ...data.domain].flatMap(e => Object.keys(e)),
     ]);
 
@@ -35,6 +36,8 @@ describe('build kit text fields mirror the JSON keys', () => {
       ),
     ];
     expect(fields).toContain('frame');
+    // The start is printed as a record, so its fields are checked too.
+    expect(fields).toContain('command');
     for (const field of fields) expect(keys).toContain(field);
   }, SLOW);
 });
