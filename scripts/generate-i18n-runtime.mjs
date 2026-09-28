@@ -11,6 +11,7 @@
  * bundle.
  */
 
+import {spawn} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {gzipSync} from 'node:zlib';
@@ -153,6 +154,12 @@ function removeStaleCatalogs(expectedFiles) {
   return removed;
 }
 
+export function isSourceLocaleFile(file) {
+  return (
+    typeof file === 'string' && file.endsWith('.json') && file !== PSEUDO_FILE
+  );
+}
+
 export async function generateRuntimeCatalogs({check = false} = {}) {
   const sourceCatalogs = readSourceCatalogs();
   const english = sourceCatalogs[EN_FILE];
@@ -196,8 +203,80 @@ export async function generateRuntimeCatalogs({check = false} = {}) {
   );
 }
 
+export function createSpawnInvocation(
+  command,
+  platform = process.platform,
+  commandShell = process.env.ComSpec ?? 'cmd.exe',
+) {
+  if (platform !== 'win32') {
+    return {file: command[0], args: command.slice(1)};
+  }
+  const unsafe = command.find(arg => !/^[A-Za-z0-9_@./:\\=-]+$/.test(arg));
+  if (unsafe !== undefined) {
+    throw new Error(
+      `Windows watch commands cannot contain spaces or shell metacharacters: ${unsafe}`,
+    );
+  }
+  return {
+    file: commandShell,
+    args: ['/d', '/s', '/c', command.join(' ')],
+  };
+}
+
+async function watchRuntimeCatalogs(command) {
+  await generateRuntimeCatalogs();
+
+  let debounce;
+  let regeneration = Promise.resolve();
+  const watcher = fs.watch(SOURCE_LOCALES_DIR, (_event, file) => {
+    const fileName = file == null ? null : String(file);
+    if (fileName !== null && !isSourceLocaleFile(fileName)) return;
+    clearTimeout(debounce);
+    debounce = setTimeout(() => {
+      regeneration = regeneration
+        .then(() => generateRuntimeCatalogs())
+        .catch(error => {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          console.error(
+            `Could not regenerate runtime locale catalogs: ${message}`,
+          );
+        });
+    }, 75);
+  });
+
+  const spawnOptions = {env: process.env, stdio: 'inherit'};
+  const invocation = createSpawnInvocation(command);
+  const child = spawn(invocation.file, invocation.args, spawnOptions);
+  const forwardInterrupt = () => child.kill('SIGINT');
+  const forwardTermination = () => child.kill('SIGTERM');
+  process.on('SIGINT', forwardInterrupt);
+  process.on('SIGTERM', forwardTermination);
+
+  try {
+    return await new Promise((resolve, reject) => {
+      child.once('error', reject);
+      child.once('exit', (code, signal) => resolve(signal ? 1 : (code ?? 1)));
+    });
+  } finally {
+    clearTimeout(debounce);
+    watcher.close();
+    process.removeListener('SIGINT', forwardInterrupt);
+    process.removeListener('SIGTERM', forwardTermination);
+  }
+}
+
 async function main() {
   const args = process.argv.slice(2);
+  if (args.includes('--watch')) {
+    const separator = args.indexOf('--');
+    const command = separator === -1 ? [] : args.slice(separator + 1);
+    if (command.length === 0) {
+      throw new Error('`--watch` requires a command after `--`');
+    }
+    process.exitCode = await watchRuntimeCatalogs(command);
+    return;
+  }
   await generateRuntimeCatalogs({check: args.includes('--check')});
 }
 
